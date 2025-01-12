@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { assets } from "../assets/assets";
 import { AppContext } from "../context/AppContext";
 import { motion } from "framer-motion";
-import axios from 'axios';
+import axios from "axios";
 import { toast } from "react-toastify";
 
 const Login = () => {
@@ -10,48 +10,47 @@ const Login = () => {
   const { setShowLogin, backendUrl, setToken, setUser } =
     useContext(AppContext);
 
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
 
     try {
       if (state === "Login") {
-        const { data } = await axios.post(backendUrl + '/api/user/login', {
+        const { data } = await axios.post(backendUrl + "/api/user/login", {
           email,
           password,
-        })
+        });
 
         if (data.success) {
-          setToken(data.token)
-          setUser(data.user)
-          localStorage.getItem('token', data.token)
-          setShowLogin(false)
+          setToken(data.token);
+          setUser(data.user);
+          localStorage.getItem("token", data.token);
+          setShowLogin(false);
         } else {
           toast.error(data.message);
         }
-      } 
-      else {
+      } else {
+        // console.log(name, email, password, backendUrl);
         const { data } = await axios.post(backendUrl + "/api/user/register", {
-            name,
-            email,
-            password,
-          });
-  
-          if (data.success) {
-            setToken(data.token);
-            setUser(data.user);
-            localStorage.getItem("token", data.token);
-            setShowLogin(false);
-          } else {
-            toast.error(data.message);
-          }
-      }
+          name,
+          email,
+          password,
+        });
 
+        if (data.success) {
+          setToken(data.token);
+          setUser(data.user);
+          localStorage.getItem("token", data.token);
+          setShowLogin(false);
+        } else {
+          toast.error(data.message);
+        }
+      }
     } catch (error) {
-        toast.error(error.message);
+      toast.error(error.message);
     }
   };
 
@@ -88,7 +87,7 @@ const Login = () => {
               className="-ml-1"
             />
             <input
-              onChange={e => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               value={name}
               required
               type="text"
@@ -100,7 +99,6 @@ const Login = () => {
 
         <div className="border px-6 py-2 flex items-center gap-2 rounded-full mt-4">
           <img
-            onChange={e => setEmail(e.target.value)}
             value={email}
             src={assets.email_icon}
             alt=""
@@ -108,6 +106,7 @@ const Login = () => {
             height={35}
           />
           <input
+            onChange={(e) => setEmail(e.target.value)}
             required
             type="email"
             placeholder="Email id"
@@ -118,7 +117,7 @@ const Login = () => {
         <div className="border px-6 py-2 flex items-center gap-2 rounded-full mt-4">
           <img src={assets.lock_icon} alt="" width={15} height={35} />
           <input
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             value={password}
             required
             type="password"
