@@ -12,7 +12,7 @@ const Navbar = () => {
   return (
     <div className='flex items-center justify-between py-4'>
         <Link to='/'>
-            <img src={assets.logo} alt="" className='w-28 sm:w-32 lg:w-40'/>
+            <img src={assets.pixify_logo} alt="" className='w-28 sm:w-32 lg:w-40'/>
         </Link>
 
         <div>
@@ -34,9 +34,9 @@ const Navbar = () => {
             </div>
              : 
             <div className='flex items-center gap-2 sm:gap-5'>
-                <p onClick={()=>navigate('/buy')} className='cursor-pointer'>Pricing</p>
+                <p onClick={()=>navigate('/buy')} className='cursor-pointer text-xl'>Pricing</p>
 
-                <button onClick={()=>setShowLogin(true)} className='bg-zinc-800 text-white px-7 py-2 sm:px-10 text-sm rounded-full'>Login</button>
+                <button onClick={()=>setShowLogin(true)} className='bg-zinc-800 text-white px-7 py-2 sm:px-10 text-xl rounded-full'>Login</button>
             </div>
             }
             

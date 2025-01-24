@@ -101,7 +101,7 @@ const Header = () => {
         animate={{ opacity: 1 }}
         transition={{ delay: 1.2, duration: 0.8 }}
       >
-        Generated images from Imagify.
+        Generated images from Pixify.
       </motion.p>
     </motion.div>
   );
