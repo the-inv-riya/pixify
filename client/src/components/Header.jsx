@@ -32,15 +32,7 @@ const Header = () => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
     >
-      <motion.div className='text-stone-500 inline-flex text-center gap-2 bg-white px-6 py-1 rounded-full border border-neutral-500'
-        initial={{opacity:0, y:-20}}
-        animate={{opacity:1, y:0}}
-        transition={{delay:0.2, duration:0.8}}
-        >
-            <p>Best text to image generator</p>
-            <img src={assets.star_icon} alt="" />
-        </motion.div>
-
+      
       <motion.h1 className="text-4xl sm:text-7xl mx-auto mt-7 text-center leading-snug">
         <span className="block">Turn text to</span>
         <span className="block text-blue-600">
