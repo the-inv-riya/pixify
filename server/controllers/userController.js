@@ -1,13 +1,16 @@
 import userModel from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import razorpay from 'razorpay'
-import transactionModel from '../models/transactionModel.js'
+import Stripe from 'stripe';
+import transactionModel from '../models/transactionModel.js';
+import dotenv from 'dotenv';
+
+// Ensure environment variables are loaded
+dotenv.config();
 
 const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    console.log("Missing Details", name, email, password);
     if (!name || !email || !password) {
       return res.json({ success: false, message: "Missing Details" });
     }
@@ -60,6 +63,7 @@ const loginUser = async (req, res) => {
 const userCredits = async (req, res) => {
   try {
     const { userId } = req.body;
+    console.log(req.body)
 
     const user = await userModel.findById(userId);
 
@@ -74,104 +78,125 @@ const userCredits = async (req, res) => {
   }
 };
 
-// const razorpayInstance = new razorpay({
-//   key_id: process.env.RAZORPAY_KEY_ID,
-//   key_secret: process.env.RAZORPAY_KEY_SECRET,
-// });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// const paymentRazorpay = async(req, res)=>{
-//   try {
+const createPayment = async (req, res) => {
+  try {
+    const { userId, planId } = req.body;
 
-//     const {userId, planId} = req.body
+    if (!userId || !planId) {
+      return res.json({ success: false, message: 'Missing Details' });
+    }
 
-//     const userData = await userModel.findById(userId)
+    let credits, plan, amount, date;
 
-//     if (!userId || !planId) {
-//       return res.json({success: false, message: 'Missing Details'})
-//     }
+    switch (planId) {
+      case 'Basic':
+        plan = 'Basic';
+        credits = 100;
+        amount = 49;
+        break;
+      case 'Advanced':
+        plan = 'Advanced';
+        credits = 500;
+        amount = 299;
+        break;
+      case 'Business':
+        plan = 'Business';
+        credits = 5000;
+        amount = 999;
+        break;
+      default:
+        return res.json({ success: false, message: 'Plan not found' });
+    }
 
-//     let credits, plan, amount, date
+    date = Date.now();
 
-//     switch (planId) {
-//       case 'Basic':
-//         plan = 'Basic'
-//         credits = 100
-//         amount = 10
-//         break;
+    const transactionData = {
+      userId, plan, amount, credits, date
+    }
 
-//         case 'Advanced':
-//         plan = 'Advanced'
-//         credits = 500
-//         amount = 50
-//         break;
+    const newTransaction = await transactionModel.create(transactionData)
 
-//         case 'Business':
-//         plan = 'Business'
-//         credits = 5000
-//         amount = 250
-//         break;
-    
-//       default:
-//         return res.json({success: false, message: 'plan not found'});
-//     }
+    const amountConverted = amount * 100;
 
-//     date = Date.now();
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'inr',
+            product_data: {
+              name: `${plan} Credit Plan`,
+              description: `${credits} Credits`,
+            },
+            unit_amount: amountConverted,
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${process.env.FRONTEND_URL}/`,
+      cancel_url: `${process.env.FRONTEND_URL}/buy`,
+      metadata: {
+        transactionId: newTransaction._id.toString(),
+        userId: userId.toString(),
+        credits: credits.toString(),
+      },
+    });
 
-//     const transactionData = {
-//       userId, plan, amount, credits, date
-//     }
+    res.json({ success: true, sessionId: session.id, url: session.url });
+  } catch (error) {
+    console.error('Payment creation error:', error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
-//     const newTransaction = await transactionModel.create(transactionData)
+const verifyPayment = async (req, res) => {
+  try {
+    const { sessionId } = req.body;
 
-//     const options = {
-//       amount: amount * 100,
-//       currency: process.env.CURRENCY,
-//       receipt: newTransaction._id,
-//     }
+    if (!sessionId) {
+      return res.status(400).json({ success: false, message: "Session ID is required" });
+    }
 
-//     await razorpayInstance.orders.create(SchemaTypeOptions, (error, order)=>{
-//       if (error) {
-//         console.log(error)
-//         return res.json({success: false, message: error})
-//       }
-//       res.json({success: true, order})
-//     })
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
 
-//   } catch(error) {
-//     console.log(error)
-//     res.json({success: false, message: error.message})
-//   }
-// }
+    if (session.payment_status === 'paid') {
+      const transactionId = session.metadata?.transactionId;
+      const userId = session.metadata?.userId;
+      const credits = parseInt(session.metadata?.credits, 10);
 
-// const verifyRazorpay = async (req, res)=>{
-//   try {
+      if (!transactionId || !userId || isNaN(credits)) {
+        return res.status(400).json({ success: false, message: "Invalid session metadata" });
+      }
 
-//     const {razorpay_order_id} = req.body;
-//     const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id)
+      const transactionData = await transactionModel.findById(transactionId);
+      if (!transactionData) {
+        return res.status(404).json({ success: false, message: "Transaction not found" });
+      }
 
-//     if (orderInfo.status === 'paid') {
-//       const transactionData = await transactionModel.findById(orderInfo.receipt)
-//       if (transactionData.payment) {
-//         return res.json({ success: false, message: 'Payment Failed' })
-//       }
+      if (transactionData.payment) {
+        return res.json({ success: false, message: "Payment already processed" });
+      }
 
-//       const userData = await userModel.findById(transactionData.userId)
+      const userData = await userModel.findById(transactionData.userId)
 
-//       const creditBalance = userData.creditBalance + transactionData.credits
-//       await userModel.findByIdAndUpdate(userData._id, {creditBalance})
+      if (!userData) {
+        return res.status(404).json({ success: false, message: "User not found" });
+      }
 
-//       await transactionModel.findByIdAndUpdate(transactionData._id, {payment: true})
+      const creditBalance = userData.creditBalance + transactionData.credits
+      await userModel.findByIdAndUpdate(userData._id, {creditBalance})
+      await transactionModel.findByIdAndUpdate(transactionData._id, {payment: true})
 
-//       res.json({ success: true, message: "Credits Added"})
-
-//     } else {
-//       res.json({ success: false, message: "Payment Failed"})
-//     }
-
-//   } catch (error) {
-//     console.log(error);
-//     res.json({ success: false, message: error.message });
-//   }
-// }
-
-export { registerUser, loginUser, userCredits};
+      res.json({ success: true, message: "Credits Added Successfully!"})
+    } else {
+      return res.json({ success: false, message: "Payment not completed" });
+    }
+  } catch (error) {
+    console.error("Payment verification error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+export { registerUser, loginUser, userCredits, createPayment, verifyPayment};
